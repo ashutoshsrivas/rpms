@@ -1,0 +1,12 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function AdminApprovalsPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/dashboard/admin/reports");
+  }, [router]);
+  return null;
+}
