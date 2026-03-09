@@ -15,9 +15,29 @@ const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
 
+// Configure CORS to accept requests from frontend
+const allowedOrigins = [
+	'http://localhost:3000',
+	'https://localhost:3000',
+	'https://rpms.geu.ac.in',
+	process.env.FRONTEND_ORIGIN
+].filter(Boolean);
+
 app.use(
 	cors({
-		origin: process.env.FRONTEND_ORIGIN || 'https://localhost:3000',
+		origin: function (origin, callback) {
+			// Allow requests with no origin (like mobile apps or curl requests)
+			if (!origin) return callback(null, true);
+			
+			if (allowedOrigins.indexOf(origin) !== -1) {
+				callback(null, true);
+			} else {
+				callback(new Error('Not allowed by CORS'));
+			}
+		},
+		credentials: true,
+		methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+		allowedHeaders: ['Content-Type', 'Authorization'],
 	})
 );
 app.use(express.json());
