@@ -37,3 +37,15 @@ yarn-error.log*
 # OS
 Thumbs.db
 .DS_Store
+
+# ssh keys
+*.pem
+*.ppk
+
+
+# Logs
+logs
+*.log
+logs/*
+npm-debug.log*
+yarn-debug.log*
