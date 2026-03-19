@@ -38,7 +38,12 @@ const upload = multer({
 
 function buildS3Client() {
 	if (!s3Region || !s3Bucket || !s3AccessKeyId || !s3SecretAccessKey) {
-		throw new Error('S3 configuration missing');
+		const missing = [];
+		if (!s3Region) missing.push('AWS_REGION');
+		if (!s3Bucket) missing.push('S3_BUCKET');
+		if (!s3AccessKeyId) missing.push('AWS_ACCESS_KEY_ID');
+		if (!s3SecretAccessKey) missing.push('AWS_SECRET_ACCESS_KEY');
+		throw new Error(`S3 configuration missing: ${missing.join(', ')}`);
 	}
 
 	return new S3Client({
@@ -98,8 +103,15 @@ async function s3UploadMiddleware(req, res, next) {
 		};
 		next();
 	} catch (err) {
-		console.error('Failed to upload to S3', err.message);
-		res.status(500).json({ message: 'Failed to upload file' });
+		console.error('Failed to upload to S3:', {
+			message: err.message,
+			code: err.code,
+			statusCode: err.$metadata?.httpStatusCode,
+		});
+		res.status(500).json({ 
+			message: 'Failed to upload file',
+			details: process.env.NODE_ENV === 'development' ? err.message : undefined
+		});
 	}
 }
 
