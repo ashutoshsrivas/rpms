@@ -87,9 +87,16 @@ function validateTransition(currentStatus, nextStatus, role) {
 	}
 
 	if (role === 'ADMIN') {
+		if (current === next) return null;
 		if (next === 'rejected') return null; // Admin can reject anytime
+		if (current === 'draft' && next === 'in-review') return null;
+		if (current === 'draft' && next === 'submitted') return null;
+		if (current === 'draft' && next === 'approved') return null;
+		if (current === 'submitted' && next === 'in-review') return null;
+		if (current === 'in-review' && next === 'submitted') return null;
+		if (current === 'in-review' && next === 'approved') return null;
 		if (current === 'submitted' && next === 'approved') return null; // Final approval step
-		return 'Admin can approve submitted requests or reject';
+		return 'Admin can move draft/submitted/in-review requests through review, approve, or reject';
 	}
 
 	return 'Forbidden';
