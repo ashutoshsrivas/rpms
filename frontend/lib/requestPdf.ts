@@ -94,9 +94,37 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
     return currentPage;
   }
 
+  // Sanitize text to remove characters that WinAnsi encoding can't handle
+  function sanitizeText(text: string): string {
+    if (!text) return '';
+    return String(text)
+      .replace(/\t/g, '  ')           // Replace tabs with spaces
+      .replace(/\r\n/g, ' ')          // Replace Windows newlines with space
+      .replace(/\n/g, ' ')            // Replace newlines with space
+      .replace(/\r/g, ' ')            // Replace carriage returns with space
+      .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '') // Remove other control characters
+      .replace(/[^\x20-\x7E\xA0-\xFF]/g, '') // Remove characters outside WinAnsi range
+      .replace(/[\u2013\u2014]/g, '-') // Replace en-dash and em-dash with hyphen
+      .replace(/[\u2018\u2019]/g, "'") // Replace smart single quotes
+      .replace(/[\u201C\u201D]/g, '"') // Replace smart double quotes
+      .replace(/\u2026/g, '...')       // Replace ellipsis
+      .replace(/[\u0080-\u00FF]/g, (char) => {
+        // Handle extended ASCII by replacing with similar characters
+        const replacements: { [key: string]: string } = {
+          'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+          'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+          'ñ': 'n', 'Ñ': 'N',
+          'ü': 'u', 'Ü': 'U',
+        };
+        return replacements[char] || char;
+      })
+      .trim();
+  }
+
   function wrapLines(text: string, useBold = false, fontSize = 10, maxW = maxWidth) {
+    const sanitized = sanitizeText(text);
     const targetFont = useBold ? bold : font;
-    const words = text.split(" ");
+    const words = sanitized.split(" ");
     const lines: string[] = [];
     let current = "";
     words.forEach((word) => {
@@ -114,7 +142,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
 
   function wrapUrl(url: string, fontSize: number, maxW: number): string[] {
     const lines: string[] = [];
-    let remaining = url;
+    let remaining = sanitizeText(url);
     
     while (remaining.length > 0) {
       let lineLength = remaining.length;
@@ -178,7 +206,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
       color: colors.background,
     });
     
-    currentPage.drawText(text, {
+    currentPage.drawText(sanitizeText(text), {
       x: margin,
       y,
       size: 15,
@@ -199,13 +227,13 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
   }
 
   function formatFieldValue(value: any): string {
-    if (value === null || value === undefined || value === '') return '—';
+    if (value === null || value === undefined || value === '') return '-';
     if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-    if (typeof value === 'number') return String(value);
-    if (typeof value === 'string') return value;
-    if (Array.isArray(value)) return value.length ? value.join(', ') : '—';
-    if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
+    if (typeof value === 'number') return sanitizeText(String(value));
+    if (typeof value === 'string') return sanitizeText(value);
+    if (Array.isArray(value)) return value.length ? sanitizeText(value.join(', ')) : '-';
+    if (typeof value === 'object') return sanitizeText(JSON.stringify(value));
+    return sanitizeText(String(value));
   }
 
   function drawFieldRow(label: string, value: any) {
@@ -215,7 +243,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
     addPageIfNeeded(3);
     
     // Two-column layout: label on left, value on right
-    currentPage.drawText(label, {
+    currentPage.drawText(sanitizeText(label), {
       x: margin + 10,
       y,
       size: 9.5,
@@ -254,7 +282,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
       color: colors.accent,
     });
     
-    currentPage.drawText(text, {
+    currentPage.drawText(sanitizeText(text), {
       x: margin + 12,
       y,
       size: 11.5,
@@ -363,7 +391,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
       });
       
       // Uploader info
-      currentPage.drawText(`By: ${file.sender_email}`, {
+      currentPage.drawText(sanitizeText(`By: ${file.sender_email}`), {
         x: margin + colWidths.serial + 5,
         y: rowY - 15 - (linkLines.length * 10) - 2,
         size: 7,
@@ -549,7 +577,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
     y -= 12;
     
     rows.forEach(({ label, value }) => {
-      currentPage.drawText(label + ':', {
+      currentPage.drawText(sanitizeText(label) + ':', {
         x: margin + 15,
         y,
         size: 9,
@@ -557,7 +585,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
         color: colors.secondary,
       });
       
-      currentPage.drawText(value, {
+      currentPage.drawText(sanitizeText(value), {
         x: margin + 120,
         y,
         size: 9.5,
@@ -580,7 +608,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
     color: colors.primary,
   });
   
-  currentPage.drawText(requestTitle, {
+  currentPage.drawText(sanitizeText(requestTitle), {
     x: margin,
     y: currentPage.getSize().height - 45,
     size: 18,
@@ -692,10 +720,10 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
     chatMessages.forEach((msg, idx) => {
       drawLines(`${idx + 1}. [${formatDate(msg.created_at)}] ${msg.sender_email}`, true);
       if (msg.content) drawLines(`   ${msg.content}`);
-      (msg.attachments || []).forEach((att) => drawLines(`   📎 ${att.file_key}`));
+      (msg.attachments || []).forEach((att) => drawLines(`   [Attachment] ${att.file_key}`));
       addSpacer(0.3);
     });
-    chatOrphans.forEach((att) => drawLines(`📎 [${formatDate(att.created_at)}] ${att.sender_email}: ${att.file_key}`));
+    chatOrphans.forEach((att) => drawLines(`[Attachment] [${formatDate(att.created_at)}] ${att.sender_email}: ${att.file_key}`));
   }
 
   // Add page number to last page
