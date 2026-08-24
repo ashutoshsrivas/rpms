@@ -90,7 +90,6 @@ export default function AdminFilesPage() {
   function authHeaders() {
     return {
       Authorization: `Bearer ${auth?.token || ""}`,
-      "x-user-email": auth?.email || "",
     };
   }
 

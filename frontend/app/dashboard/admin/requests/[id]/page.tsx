@@ -244,7 +244,7 @@ export default function AdminRequestDetailPage() {
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -266,7 +266,7 @@ export default function AdminRequestDetailPage() {
     setChatError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}/chat`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -289,7 +289,7 @@ export default function AdminRequestDetailPage() {
     setPrivateFilesError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}/private-files`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -311,7 +311,7 @@ export default function AdminRequestDetailPage() {
     setAdminFilesError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}/admin-files`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -333,7 +333,7 @@ export default function AdminRequestDetailPage() {
     setPostApprovalError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}/post-approval/requirements`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -363,7 +363,7 @@ export default function AdminRequestDetailPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({ label }),
       });
@@ -391,7 +391,7 @@ export default function AdminRequestDetailPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({
           senderEmail: auth.email,
@@ -423,7 +423,7 @@ export default function AdminRequestDetailPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({
           senderEmail: auth.email,
@@ -453,7 +453,7 @@ export default function AdminRequestDetailPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({
           senderEmail: auth.email,
@@ -483,7 +483,7 @@ export default function AdminRequestDetailPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({ status: nextStatus }),
       });

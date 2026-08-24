@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { readAuth } from "../lib/authStorage";
+
+// Bearer header from the stored JWT; identity/authorization is enforced server-side.
+function authHeader(): Record<string, string> {
+  const token = readAuth().token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export type UploadedRecord = {
   id?: number;
@@ -57,9 +64,9 @@ export default function UploadPicker({ apiBase, userEmail, value, onChange, butt
     setUploadsLoading(true);
     setUploadsError(null);
     try {
-      const res = await fetch(`${apiBase}/api/uploads?email=${encodeURIComponent(userEmail)}`, {
+      const res = await fetch(`${apiBase}/api/uploads`, {
         headers: {
-          "x-user-email": userEmail,
+          ...authHeader(),
         },
       });
       if (!res.ok) {
@@ -109,7 +116,7 @@ export default function UploadPicker({ apiBase, userEmail, value, onChange, butt
         method: "POST",
         body: formData,
         headers: {
-          "x-user-email": userEmail,
+          ...authHeader(),
         },
       });
 
@@ -151,7 +158,7 @@ export default function UploadPicker({ apiBase, userEmail, value, onChange, butt
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": userEmail,
+          ...authHeader(),
         },
         body: JSON.stringify({ key: file.key }),
       });
@@ -203,7 +210,7 @@ export default function UploadPicker({ apiBase, userEmail, value, onChange, butt
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": userEmail,
+          ...authHeader(),
         },
         body: JSON.stringify({ key: selectedFileForDeletion.key }),
       });

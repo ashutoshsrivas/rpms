@@ -17,19 +17,10 @@ const {
 
 const router = express.Router();
 
-// Approver picklist for request forms. Requires a known caller (any signed-in
-// user, identified by the x-user-email header) so the HOD/ADMIN directory is
-// not exposed anonymously.
-router.get('/approvers', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
-	if (!actorEmail) return res.status(401).json({ message: 'Authentication required' });
+// Approver picklist for request forms. Requires any signed-in user (verified
+// JWT) so the HOD/ADMIN directory is not exposed anonymously.
+router.get('/approvers', authMiddleware, async (_req, res) => {
 	try {
-		const [known] = await pool.query(
-			`SELECT id FROM users WHERE email = :email LIMIT 1`,
-			{ email: actorEmail }
-		);
-		if (!known.length) return res.status(403).json({ message: 'Forbidden' });
-
 		const [rows] = await pool.query(
 			`SELECT id, name, email, role FROM users WHERE role IN ('HOD','ADMIN') ORDER BY role, name`
 		);

@@ -76,7 +76,7 @@ export default function HodApprovalsPage() {
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests?status=submitted,in-review,draft`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
         cache: "no-store",
       });
       if (!res.ok) {
@@ -102,7 +102,7 @@ export default function HodApprovalsPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({ status }),
       });

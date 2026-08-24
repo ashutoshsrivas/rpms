@@ -8,29 +8,15 @@ const requireRole = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
-// Runs after multer parses the body but before the S3 upload, so an unknown /
-// anonymous caller is rejected without ever writing an object to the bucket.
-async function requireKnownUploader(req, res, next) {
-	const email = (req.body?.uploaderEmail || req.headers['x-user-email'] || '').toString().toLowerCase();
-	if (!email) return res.status(401).json({ message: 'Uploader email is required' });
-	try {
-		const [rows] = await pool.query(`SELECT id FROM users WHERE email = :email LIMIT 1`, { email });
-		if (!rows.length) return res.status(403).json({ message: 'Unknown uploader' });
-		req.uploaderEmail = email;
-		next();
-	} catch (err) {
-		console.error('Failed to verify uploader', err.message);
-		res.status(500).json({ message: 'Failed to verify uploader' });
-	}
-}
-
-router.post('/', upload.single('file'), requireKnownUploader, s3UploadMiddleware, async (req, res) => {
+// JWT runs before multer so an unauthenticated caller is rejected without ever
+// writing an object to the bucket; the uploader identity is the verified token.
+router.post('/', authMiddleware, upload.single('file'), s3UploadMiddleware, async (req, res) => {
 	if (!req.file || !req.uploadedFile) {
 		return res.status(400).json({ message: 'No file uploaded' });
 	}
 
 	const { originalName, mimetype, size, key, url } = req.uploadedFile;
-	const uploaderEmail = req.uploaderEmail;
+	const uploaderEmail = (req.user.email || '').toLowerCase();
 
 	try {
 		await pool.query(
@@ -52,11 +38,9 @@ router.post('/', upload.single('file'), requireKnownUploader, s3UploadMiddleware
 	}
 });
 
-router.get('/', async (req, res) => {
-	const emailFilter = (req.query.email || req.headers['x-user-email'] || '').toString().toLowerCase();
-	if (!emailFilter) {
-		return res.status(400).json({ message: 'Email is required to list uploads' });
-	}
+router.get('/', authMiddleware, async (req, res) => {
+	// A user may only list their own uploads; the filter is the verified token.
+	const emailFilter = (req.user.email || '').toLowerCase();
 	const where = 'WHERE uploader_email = :email';
 	try {
 		const [rows] = await pool.query(
@@ -149,13 +133,9 @@ router.get('/admin/all', authMiddleware, requireRole(['ADMIN']), async (_req, re
 });
 
 // Check file usage across the system
-router.post('/check-usage', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+router.post('/check-usage', authMiddleware, async (req, res) => {
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const fileKey = req.body?.key;
-
-	if (!actorEmail) {
-		return res.status(400).json({ message: 'Email is required' });
-	}
 
 	if (!fileKey) {
 		return res.status(400).json({ message: 'File key is required' });
@@ -241,13 +221,9 @@ router.post('/check-usage', async (req, res) => {
 });
 
 // Delete a file
-router.delete('/', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+router.delete('/', authMiddleware, async (req, res) => {
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const fileKey = req.body?.key;
-
-	if (!actorEmail) {
-		return res.status(400).json({ message: 'Email is required' });
-	}
 
 	if (!fileKey) {
 		return res.status(400).json({ message: 'File key is required' });

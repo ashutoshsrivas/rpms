@@ -83,7 +83,7 @@ export default function HodRequestsPage() {
       params.set("limit", "200");
       if (statusFilter !== "all") params.set("status", statusFilter);
       const res = await fetch(`${apiBase}/api/requests?${params.toString()}`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
         cache: "no-store",
       });
       if (!res.ok) {

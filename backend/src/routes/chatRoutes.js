@@ -6,6 +6,10 @@ const authMiddleware = require('../middleware/authMiddleware');
 const requireRole = require('../middleware/roleMiddleware');
 
 const router = express.Router();
+
+// Every request-review endpoint requires a verified JWT. Identity (email/role)
+// comes from req.user, never from a client-supplied header.
+router.use(authMiddleware);
 const ALLOWED_STATUSES = ['draft', 'submitted', 'in-review', 'approved', 'rejected'];
 const ALLOWED_TYPES = ['seed-research', 'conference', 'workshop', 'fdp', 'laptop-grant', 'external-funding'];
 
@@ -138,7 +142,7 @@ function validateTransition(currentStatus, nextStatus, role) {
 }
 
 router.get('/', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const actor = await requireHodActor(actorEmail, res);
 	if (!actor) return;
 
@@ -239,7 +243,7 @@ router.delete('/:requestId', authMiddleware, requireRole(['ADMIN']), async (req,
 });
 
 router.get('/:requestId', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const actor = await requireHodActor(actorEmail, res);
 	if (!actor) return;
 
@@ -264,7 +268,7 @@ router.get('/:requestId', async (req, res) => {
 });
 
 router.patch('/:requestId/status', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const actor = await requireHodActor(actorEmail, res);
 	if (!actor) return;
 
@@ -306,7 +310,7 @@ router.patch('/:requestId/status', async (req, res) => {
 
 // HOD/Admin private documents (not visible to requesters)
 router.get('/:requestId/private-files', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const actor = await requireHodActor(actorEmail, res);
 	if (!actor) return;
 
@@ -326,7 +330,7 @@ router.get('/:requestId/private-files', async (req, res) => {
 });
 
 router.post('/:requestId/private-files', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const actor = await requireHodActor(actorEmail, res);
 	if (!actor) return;
 
@@ -358,7 +362,7 @@ router.post('/:requestId/private-files', async (req, res) => {
 
 // Admin-only statements/documents
 router.get('/:requestId/admin-files', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const actor = await requireAdminActor(actorEmail, res);
 	if (!actor) return;
 
@@ -378,7 +382,7 @@ router.get('/:requestId/admin-files', async (req, res) => {
 });
 
 router.post('/:requestId/admin-files', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const actor = await requireAdminActor(actorEmail, res);
 	if (!actor) return;
 
@@ -410,7 +414,7 @@ router.post('/:requestId/admin-files', async (req, res) => {
 
 // Post-approval document requirements
 router.get('/:requestId/post-approval/requirements', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const requestId = Number(req.params.requestId);
 
 	if (!requestId || Number.isNaN(requestId)) return res.status(400).json({ message: 'Invalid request id' });
@@ -447,7 +451,7 @@ router.get('/:requestId/post-approval/requirements', async (req, res) => {
 });
 
 router.post('/:requestId/post-approval/requirements', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const requestId = Number(req.params.requestId);
 	if (!requestId || Number.isNaN(requestId)) return res.status(400).json({ message: 'Invalid request id' });
 
@@ -476,7 +480,7 @@ router.post('/:requestId/post-approval/requirements', async (req, res) => {
 });
 
 router.post('/:requestId/post-approval/submissions', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actorEmail = (req.user.email || '').toLowerCase();
 	const requestId = Number(req.params.requestId);
 	const requirementId = Number(req.body?.requirementId);
 	const upload = req.body?.upload || {};
@@ -540,7 +544,7 @@ router.post('/:requestId/post-approval/submissions', async (req, res) => {
 
 router.get('/:requestId/chat', async (req, res) => {
 	const requestId = Number(req.params.requestId);
-	const email = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const email = (req.user.email || '').toLowerCase();
 	if (!requestId || Number.isNaN(requestId)) return res.status(400).json({ message: 'Invalid request id' });
 
 	// Only the owner or an HOD/ADMIN may read a request's thread.
@@ -579,7 +583,7 @@ router.post('/:requestId/chat', async (req, res) => {
 	const requestId = Number(req.params.requestId);
 	// Attribution comes from the caller's header identity, never the body —
 	// a client cannot post as an arbitrary sender.
-	const email = (req.headers['x-user-email'] || req.body?.senderEmail || '').toString().toLowerCase();
+	const email = (req.user.email || '').toLowerCase();
 	const content = (req.body?.content || '').toString();
 	const upload = req.body?.upload || null;
 	if (!requestId || Number.isNaN(requestId)) return res.status(400).json({ message: 'Invalid request id' });

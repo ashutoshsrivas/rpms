@@ -67,7 +67,7 @@ export default function UserDashboardPage() {
     try {
       const res = await fetch(
         `${apiBase}/api/seed-research/drafts?email=${encodeURIComponent(auth.email)}&type=all`,
-        { headers: { "x-user-email": auth.email } }
+        { headers: { Authorization: `Bearer ${auth.token}` } }
       );
       if (!res.ok) {
         const message = await res.text();

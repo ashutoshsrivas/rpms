@@ -166,7 +166,7 @@ export default function RequestDetailPage() {
     setApproversError(null);
     try {
       const res = await fetch(`${apiBase}/api/users/approvers`, {
-        headers: auth?.email ? { "x-user-email": auth.email } : {},
+        headers: auth?.email ? { Authorization: `Bearer ${auth.token}` } : {},
       });
       if (!res.ok) {
         const message = await res.text();
@@ -188,7 +188,7 @@ export default function RequestDetailPage() {
     setChatError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}/chat`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -211,7 +211,7 @@ export default function RequestDetailPage() {
     setRequirementsError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}/post-approval/requirements`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -243,7 +243,7 @@ export default function RequestDetailPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({ requirementId, upload: { key: upload.key, url: upload.url }, note }),
       });
@@ -271,7 +271,7 @@ export default function RequestDetailPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({
           senderEmail: auth.email,
@@ -300,7 +300,7 @@ export default function RequestDetailPage() {
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/seed-research/drafts/${requestId}`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -356,7 +356,7 @@ export default function RequestDetailPage() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({
           userEmail: auth.email,

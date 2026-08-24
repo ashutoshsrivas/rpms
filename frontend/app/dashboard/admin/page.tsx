@@ -64,16 +64,16 @@ export default function AdminDashboardPage() {
     setAuth(stored);
     setMounted(true);
     if (stored.email) {
-      loadRequests(stored.email);
+      loadRequests();
     }
   }, [router]);
 
-  async function loadRequests(email: string) {
+  async function loadRequests() {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests?limit=200`, {
-        headers: { "x-user-email": email },
+        headers: { Authorization: `Bearer ${readAuth().token ?? ""}` },
         cache: "no-store",
       });
       if (!res.ok) {

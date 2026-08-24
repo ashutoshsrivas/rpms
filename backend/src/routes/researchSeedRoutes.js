@@ -3,7 +3,12 @@
 const express = require('express');
 const { pool } = require('../config/db');
 
+const authMiddleware = require('../middleware/authMiddleware');
+
 const router = express.Router();
+
+// All owner CRUD requires a verified JWT; the owner identity is req.user.email.
+router.use(authMiddleware);
 const ALLOWED_TYPES = ['seed-research', 'conference', 'workshop', 'fdp', 'laptop-grant', 'external-funding'];
 
 function resolveType(input, fallback = 'seed-research') {
@@ -22,7 +27,7 @@ function resolveListTypes(param) {
 }
 
 router.post('/drafts', async (req, res) => {
-	const userEmail = (req.body?.userEmail || req.headers['x-user-email'] || '').toString().toLowerCase();
+	const userEmail = (req.user.email || '').toLowerCase();
 	const data = req.body?.data;
 	const upload = req.body?.upload || {};
 	const approvalAuthority = req.body?.approvalAuthority || '';
@@ -63,7 +68,7 @@ router.post('/drafts', async (req, res) => {
 });
 
 router.get('/drafts', async (req, res) => {
-	const email = (req.query.email || req.headers['x-user-email'] || '').toString().toLowerCase();
+	const email = (req.user.email || '').toLowerCase();
 	let types;
 	if (!email) {
 		return res.status(400).json({ message: 'Email is required' });
@@ -89,7 +94,7 @@ router.get('/drafts', async (req, res) => {
 
 router.get('/drafts/:id', async (req, res) => {
 	const id = Number(req.params.id);
-	const email = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const email = (req.user.email || '').toLowerCase();
 	if (!email) {
 		return res.status(400).json({ message: 'Email is required' });
 	}
@@ -114,7 +119,7 @@ router.get('/drafts/:id', async (req, res) => {
 
 router.put('/drafts/:id', async (req, res) => {
 	const id = Number(req.params.id);
-	const userEmail = (req.body?.userEmail || req.headers['x-user-email'] || '').toString().toLowerCase();
+	const userEmail = (req.user.email || '').toLowerCase();
 	const data = req.body?.data;
 	const upload = req.body?.upload || {};
 	const approvalAuthority = req.body?.approvalAuthority || '';

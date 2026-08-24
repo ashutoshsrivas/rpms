@@ -208,7 +208,7 @@ export default function HodRequestDetailPage() {
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -230,7 +230,7 @@ export default function HodRequestDetailPage() {
     setPrivateFilesError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}/private-files`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -252,7 +252,7 @@ export default function HodRequestDetailPage() {
     setChatError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${requestId}/chat`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const message = await res.text();
@@ -278,7 +278,7 @@ export default function HodRequestDetailPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({
           senderEmail: auth.email,
@@ -310,7 +310,7 @@ export default function HodRequestDetailPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({
           senderEmail: auth.email,
@@ -340,7 +340,7 @@ export default function HodRequestDetailPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({ status: nextStatus }),
       });

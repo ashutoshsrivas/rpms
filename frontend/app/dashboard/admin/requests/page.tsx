@@ -172,7 +172,7 @@ export default function AdminRequestsPage() {
       const params = new URLSearchParams();
       params.set("limit", "500");
       const res = await fetch(`${apiBase}/api/requests?${params.toString()}`, {
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
         cache: "no-store",
       });
       if (!res.ok) {

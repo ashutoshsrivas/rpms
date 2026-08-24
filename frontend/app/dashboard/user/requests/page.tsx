@@ -175,7 +175,7 @@ export default function UserRequestsPage() {
       const res = await fetch(
         `${apiBase}/api/seed-research/drafts?email=${encodeURIComponent(auth.email)}&type=all`,
         {
-          headers: { "x-user-email": auth.email },
+          headers: { Authorization: `Bearer ${auth.token}` },
         }
       );
       if (!res.ok) {
@@ -223,7 +223,7 @@ export default function UserRequestsPage() {
         method,
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": auth.email,
+          Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({
           userEmail: auth.email,
@@ -341,7 +341,7 @@ export default function UserRequestsPage() {
     setApproversError(null);
     try {
       const res = await fetch(`${apiBase}/api/users/approvers`, {
-        headers: auth?.email ? { "x-user-email": auth.email } : {},
+        headers: auth?.email ? { Authorization: `Bearer ${auth.token}` } : {},
       });
       if (!res.ok) {
         const message = await res.text();
