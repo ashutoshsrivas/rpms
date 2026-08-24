@@ -149,8 +149,19 @@ router.get('/', async (req, res) => {
 		params.push(ownerParam);
 	}
 
-	const where = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
-	const sql = `SELECT id, user_email, request_type, data, upload_key, upload_url, approval_authority, status, created_at, updated_at FROM requests ${where} ORDER BY updated_at DESC LIMIT ? OFFSET ?`;
+	const where = whereClauses.length ? `WHERE r.${whereClauses.join(' AND r.')}` : '';
+	const sql = `SELECT r.id, r.user_email, r.request_type, r.data, r.upload_key, r.upload_url,
+			r.approval_authority, r.status, r.created_at, r.updated_at,
+			u.name AS owner_name, u.phone AS owner_phone,
+			(SELECT COUNT(*) FROM chat_messages cm WHERE cm.request_id = r.id) AS messages_count,
+			(SELECT COUNT(*) FROM chat_files cf WHERE cf.request_id = r.id) AS files_count,
+			(SELECT COUNT(*) FROM post_approval_requirements pr WHERE pr.request_id = r.id) AS requirements_count,
+			(SELECT COUNT(*) FROM post_approval_submissions ps WHERE ps.request_id = r.id) AS submissions_count
+		FROM requests r
+		LEFT JOIN users u ON u.email = r.user_email
+		${where}
+		ORDER BY r.updated_at DESC
+		LIMIT ? OFFSET ?`;
 	params.push(limit, offset);
 
 	try {
@@ -159,6 +170,38 @@ router.get('/', async (req, res) => {
 	} catch (err) {
 		console.error('Failed to list requests for HOD', err);
 		res.status(500).json({ message: 'Failed to list requests' });
+	}
+});
+
+// Admin-only: delete a request (cascades to chat, files, requirements, submissions via FKs)
+router.delete('/:requestId', async (req, res) => {
+	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
+	const actor = await requireAdminActor(actorEmail, res);
+	if (!actor) return;
+
+	const requestId = Number(req.params.requestId);
+	if (!requestId || Number.isNaN(requestId)) {
+		return res.status(400).json({ message: 'Invalid request id' });
+	}
+
+	try {
+		const [existing] = await pool.query(
+			`SELECT id, user_email, request_type, status FROM requests WHERE id = :id LIMIT 1`,
+			{ id: requestId }
+		);
+		if (!existing.length) {
+			return res.status(404).json({ message: 'Request not found' });
+		}
+
+		const [result] = await pool.query(`DELETE FROM requests WHERE id = :id`, { id: requestId });
+		if (!result.affectedRows) {
+			return res.status(404).json({ message: 'Request not found' });
+		}
+
+		res.json({ id: requestId, deleted: true, request: existing[0] });
+	} catch (err) {
+		console.error('Failed to delete request', err);
+		res.status(500).json({ message: 'Failed to delete request' });
 	}
 });
 
