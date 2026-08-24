@@ -46,17 +46,49 @@ function isPrimitive(value: unknown) {
   return value === null || ["string", "number", "boolean", "undefined"].includes(typeof value);
 }
 
+// True when a value has no meaningful content, so blank repeated form slots
+// (e.g. the 5 empty publication rows) collapse instead of rendering empty tiles.
+function isEmptyValue(value: any): boolean {
+  if (value === null || value === undefined || value === "") return true;
+  if (Array.isArray(value)) return value.every(isEmptyValue);
+  if (typeof value === "object") return Object.values(value).every(isEmptyValue);
+  return false;
+}
+
+// Turn camelCase / snake-case keys into readable labels.
+function humanizeKey(key: string): string {
+  const spaced = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  if (!spaced) return key;
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 // Renders nested request data as readable key/value tiles instead of raw JSON.
 function DataPreview({ value }: { value: any }) {
   if (isPrimitive(value)) {
-    return <span className="text-slate-900">{value === null || value === undefined ? "—" : String(value)}</span>;
+    if (value === null || value === undefined || value === "") {
+      return <span className="text-slate-400">—</span>;
+    }
+    if (typeof value === "boolean") {
+      return <span className="text-slate-900">{value ? "Yes" : "No"}</span>;
+    }
+    return <span className="text-slate-900">{String(value)}</span>;
   }
 
   if (Array.isArray(value)) {
+    const items = value.filter((item) => !isEmptyValue(item));
+    if (!items.length) return <span className="text-slate-400">—</span>;
     return (
       <div className="space-y-2">
-        {value.map((item, idx) => (
+        {items.map((item, idx) => (
           <div key={idx} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            {typeof item === "object" && item !== null && (
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                #{idx + 1}
+              </p>
+            )}
             <DataPreview value={item} />
           </div>
         ))}
@@ -65,13 +97,17 @@ function DataPreview({ value }: { value: any }) {
   }
 
   if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, any>);
-    if (!entries.length) return <span className="text-slate-500">No details</span>;
+    const entries = Object.entries(value as Record<string, any>).filter(
+      ([, val]) => !isEmptyValue(val)
+    );
+    if (!entries.length) return <span className="text-slate-400">—</span>;
     return (
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {entries.map(([key, val]) => (
           <div key={key} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{key}</dt>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {humanizeKey(key)}
+            </dt>
             <dd className="mt-1 text-sm text-slate-900">
               <DataPreview value={val} />
             </dd>

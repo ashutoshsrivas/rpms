@@ -226,22 +226,68 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
     return result.charAt(0).toUpperCase() + result.slice(1);
   }
 
-  function formatFieldValue(value: any): string {
-    if (value === null || value === undefined || value === '') return '-';
+  // True when a value carries no meaningful content (empty string, empty
+  // array, or an object whose every field is itself empty). Used so blank
+  // repeated form rows (e.g. the 5 empty publication slots) collapse to "-".
+  function isEmptyValue(value: any): boolean {
+    if (value === null || value === undefined || value === '') return true;
+    if (Array.isArray(value)) return value.every(isEmptyValue);
+    if (typeof value === 'object') return Object.values(value).every(isEmptyValue);
+    return false;
+  }
+
+  function scalarToString(value: any): string {
     if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-    if (typeof value === 'number') return sanitizeText(String(value));
-    if (typeof value === 'string') return sanitizeText(value);
-    if (Array.isArray(value)) return value.length ? sanitizeText(value.join(', ')) : '-';
-    if (typeof value === 'object') return sanitizeText(JSON.stringify(value));
-    return sanitizeText(String(value));
+    return String(value);
+  }
+
+  // Collapse a nested value into a single compact readable string.
+  // Objects render as "Key: val | Key: val"; used inside array-of-object rows.
+  function flattenValueInline(value: any): string {
+    if (isEmptyValue(value)) return '-';
+    if (Array.isArray(value)) {
+      return value.filter((v) => !isEmptyValue(v)).map(flattenValueInline).join(', ');
+    }
+    if (typeof value === 'object') {
+      return Object.entries(value)
+        .filter(([, v]) => !isEmptyValue(v))
+        .map(([k, v]) => `${camelCaseToTitle(k)}: ${flattenValueInline(v)}`)
+        .join('  |  ');
+    }
+    return scalarToString(value);
+  }
+
+  // Produce the logical (pre-wrap) lines for a field value. Arrays of objects
+  // become numbered entries so nothing ever renders as "[object Object]".
+  function formatFieldLines(value: any): string[] {
+    if (isEmptyValue(value)) return ['-'];
+
+    if (Array.isArray(value)) {
+      const items = value.filter((v) => !isEmptyValue(v));
+      if (!items.length) return ['-'];
+      // Array of primitives -> single comma-joined line.
+      if (items.every((v) => v === null || typeof v !== 'object')) {
+        return [items.map(scalarToString).join(', ')];
+      }
+      // Array of objects/arrays -> one numbered line each.
+      return items.map((item, idx) => `${idx + 1}. ${flattenValueInline(item)}`);
+    }
+
+    if (typeof value === 'object') {
+      const parts = Object.entries(value)
+        .filter(([, v]) => !isEmptyValue(v))
+        .map(([k, v]) => `${camelCaseToTitle(k)}: ${flattenValueInline(v)}`);
+      return parts.length ? parts : ['-'];
+    }
+
+    return [scalarToString(value)];
   }
 
   function drawFieldRow(label: string, value: any) {
-    const formattedValue = formatFieldValue(value);
     const labelWidth = 180;
-    
+
     addPageIfNeeded(3);
-    
+
     // Two-column layout: label on left, value on right
     currentPage.drawText(sanitizeText(label), {
       x: margin + 10,
@@ -250,11 +296,14 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
       font: bold,
       color: colors.secondary,
     });
-    
-    // Draw value with wrapping in right column
-    const valueLines = wrapLines(formattedValue, false, 10, maxWidth - labelWidth - 20);
+
+    // Each logical line is wrapped independently so multi-entry values
+    // (publications, projects, patents, ...) keep one entry per line.
+    const valueLines = formatFieldLines(value).flatMap((line) =>
+      wrapLines(line, false, 10, maxWidth - labelWidth - 20)
+    );
     const startY = y;
-    
+
     valueLines.forEach((line, idx) => {
       addPageIfNeeded(1).drawText(line, {
         x: margin + labelWidth,
@@ -264,7 +313,7 @@ export async function exportRequestPdfDocument(ctx: ExportContext) {
         color: colors.text,
       });
     });
-    
+
     y -= Math.max(lineHeight, valueLines.length * lineHeight);
     y -= 6; // Spacing between fields
   }
