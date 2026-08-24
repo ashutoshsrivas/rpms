@@ -49,6 +49,7 @@ export default function AdminDashboardPage() {
       { label: "Overview", href: "/dashboard/admin" },
       { label: "Requests", href: "/dashboard/admin/requests" },
       { label: "Users", href: "/dashboard/admin/users" },
+      { label: "Files", href: "/dashboard/admin/files" },
       { label: "Reports", href: "/dashboard/admin/reports" },
     ],
     []

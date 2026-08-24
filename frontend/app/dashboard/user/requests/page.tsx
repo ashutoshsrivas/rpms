@@ -37,6 +37,7 @@ export default function UserRequestsPage() {
   const [activeForm, setActiveForm] = useState<"research-project" | "event" | "laptop" | "external" | null>(null);
   const [activeRequestType, setActiveRequestType] = useState<"seed-research" | "conference" | "workshop" | "fdp" | "laptop-grant" | "external-funding">("seed-research");
   const [selectedUpload, setSelectedUpload] = useState<UploadedRecord | null>(null);
+  const [attachmentsUpload, setAttachmentsUpload] = useState<UploadedRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
@@ -208,6 +209,16 @@ export default function UserRequestsPage() {
         : `${apiBase}/api/seed-research/drafts`;
       const method = isUpdate ? "PUT" : "POST";
 
+      // For conference forms, include attachments upload in the data
+      let formData = activeForm === "event" ? eventForm : activeForm === "laptop" ? laptopForm : activeForm === "external" ? externalForm : form;
+      if (activeForm === "event" && attachmentsUpload) {
+        formData = {
+          ...eventForm,
+          attachmentsUploadKey: attachmentsUpload.key,
+          attachmentsUploadUrl: attachmentsUpload.url,
+        };
+      }
+
       const res = await fetch(endpoint, {
         method,
         headers: {
@@ -216,7 +227,7 @@ export default function UserRequestsPage() {
         },
         body: JSON.stringify({
           userEmail: auth.email,
-          data: activeForm === "event" ? eventForm : activeForm === "laptop" ? laptopForm : activeForm === "external" ? externalForm : form,
+          data: formData,
           upload: selectedUpload
             ? { key: selectedUpload.key, url: selectedUpload.url }
             : {},
@@ -241,6 +252,7 @@ export default function UserRequestsPage() {
       setSaveSuccess(`Draft saved (id: ${data.id || editingId || "new"}).`);
       setActiveForm(null);
       setSelectedUpload(null);
+      setAttachmentsUpload(null);
       setForm(initialFormState());
       setEventForm(initialConferenceFormState());
       setLaptopForm(initialLaptopFormState());
@@ -316,6 +328,7 @@ export default function UserRequestsPage() {
   function closeForm() {
     setActiveForm(null);
     setSelectedUpload(null);
+    setAttachmentsUpload(null);
     setEditingId(null);
     setForm(initialFormState());
     setEventForm(initialConferenceFormState());
@@ -801,6 +814,8 @@ export default function UserRequestsPage() {
         saveSuccess={saveSuccess}
         selectedUpload={selectedUpload}
         setSelectedUpload={setSelectedUpload}
+        attachmentsUpload={attachmentsUpload}
+        setAttachmentsUpload={setAttachmentsUpload}
         approvers={approvers}
         approversLoading={approversLoading}
         approversError={approversError}

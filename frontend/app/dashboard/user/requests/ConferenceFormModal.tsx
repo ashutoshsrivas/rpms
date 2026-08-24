@@ -14,6 +14,8 @@ export type ConferenceFormProps = {
   saveSuccess: string | null;
   selectedUpload: UploadedRecord | null;
   setSelectedUpload: (upload: UploadedRecord | null) => void;
+  attachmentsUpload: UploadedRecord | null;
+  setAttachmentsUpload: (upload: UploadedRecord | null) => void;
   approvers: { id: number; name: string; email: string; role: string }[];
   approversLoading: boolean;
   approversError: string | null;
@@ -32,6 +34,8 @@ export default function ConferenceFormModal({
   saveSuccess,
   selectedUpload,
   setSelectedUpload,
+  attachmentsUpload,
+  setAttachmentsUpload,
   approvers,
   approversLoading,
   approversError,
@@ -242,6 +246,7 @@ export default function ConferenceFormModal({
               <label className="text-sm font-medium text-slate-700">
                 Proposed Dates
                 <input
+                  type="date"
                   className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-base focus:border-slate-400 focus:outline-none"
                   value={form.proposedDates}
                   onChange={(e) => updateField("proposedDates", e.target.value)}
@@ -595,15 +600,24 @@ export default function ConferenceFormModal({
 
           <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <h3 className="text-base font-semibold text-slate-900">20. List of Attachments (Checklist)</h3>
-            <label className="mt-3 block text-sm font-medium text-slate-700">
-              Attachments (announcement letter, schedule, budget, coordinator details, forwarding letter)
-              <textarea
-                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-base focus:border-slate-400 focus:outline-none"
-                rows={3}
-                value={form.attachmentsChecklist}
-                onChange={(e) => updateField("attachmentsChecklist", e.target.value)}
+            <div className="mt-3 space-y-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Attachments description (announcement letter, schedule, budget, coordinator details, forwarding letter)
+                <textarea
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-base focus:border-slate-400 focus:outline-none"
+                  rows={3}
+                  value={form.attachmentsChecklist}
+                  onChange={(e) => updateField("attachmentsChecklist", e.target.value)}
+                />
+              </label>
+              <UploadPicker
+                apiBase={apiBase}
+                userEmail={authEmail || ""}
+                value={attachmentsUpload}
+                onChange={setAttachmentsUpload}
+                buttonLabel="Upload attachments file"
               />
-            </label>
+            </div>
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">

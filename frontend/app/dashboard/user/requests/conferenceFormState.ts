@@ -58,6 +58,8 @@ export const initialConferenceFormState = () => ({
   previousConferences: "",
   totalSeedGrantReceived: "",
   attachmentsChecklist: "",
+  attachmentsUploadKey: "",
+  attachmentsUploadUrl: "",
   declarationAgreed: false,
   declarationNames: "",
   declarationPlace: "",
