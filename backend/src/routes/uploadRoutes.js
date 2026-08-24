@@ -8,17 +8,29 @@ const requireRole = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
-router.post('/', upload.single('file'), s3UploadMiddleware, async (req, res) => {
+// Runs after multer parses the body but before the S3 upload, so an unknown /
+// anonymous caller is rejected without ever writing an object to the bucket.
+async function requireKnownUploader(req, res, next) {
+	const email = (req.body?.uploaderEmail || req.headers['x-user-email'] || '').toString().toLowerCase();
+	if (!email) return res.status(401).json({ message: 'Uploader email is required' });
+	try {
+		const [rows] = await pool.query(`SELECT id FROM users WHERE email = :email LIMIT 1`, { email });
+		if (!rows.length) return res.status(403).json({ message: 'Unknown uploader' });
+		req.uploaderEmail = email;
+		next();
+	} catch (err) {
+		console.error('Failed to verify uploader', err.message);
+		res.status(500).json({ message: 'Failed to verify uploader' });
+	}
+}
+
+router.post('/', upload.single('file'), requireKnownUploader, s3UploadMiddleware, async (req, res) => {
 	if (!req.file || !req.uploadedFile) {
 		return res.status(400).json({ message: 'No file uploaded' });
 	}
 
 	const { originalName, mimetype, size, key, url } = req.uploadedFile;
-	const uploaderEmail = (req.body?.uploaderEmail || req.headers['x-user-email'] || '').toString().toLowerCase();
-
-	if (!uploaderEmail) {
-		return res.status(400).json({ message: 'Uploader email is required' });
-	}
+	const uploaderEmail = req.uploaderEmail;
 
 	try {
 		await pool.query(

@@ -26,6 +26,11 @@ function toCsv(rows, headerOrder) {
 		} else {
 			str = String(val);
 		}
+		// Neutralize spreadsheet formula injection: a leading =, +, -, @, or
+		// tab/CR makes Excel/Sheets evaluate attacker-controlled cell text.
+		if (/^[=+\-@\t\r]/.test(str)) {
+			str = "'" + str;
+		}
 		if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
 			return '"' + str.replace(/"/g, '""') + '"';
 		}

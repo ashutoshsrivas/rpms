@@ -2,6 +2,8 @@
 
 const express = require('express');
 const { pool } = require('../config/db');
+const authMiddleware = require('../middleware/authMiddleware');
+const requireRole = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 const ALLOWED_STATUSES = ['draft', 'submitted', 'in-review', 'approved', 'rejected'];
@@ -12,6 +14,39 @@ async function findUserRole(email) {
 	if (!normalized) return null;
 	const [rows] = await pool.query(`SELECT role FROM users WHERE email = :email LIMIT 1`, { email: normalized });
 	return rows[0]?.role || null;
+}
+
+// Verifies the caller may view or participate in a request thread:
+// the request owner, or any HOD/ADMIN. Returns { request, role, isOwner }
+// or null (after sending the appropriate 4xx) when access is denied.
+async function requireRequestAccess(requestId, actorEmail, res) {
+	const email = (actorEmail || '').toString().toLowerCase();
+	if (!email) {
+		res.status(400).json({ message: 'Email is required' });
+		return null;
+	}
+	try {
+		const [rows] = await pool.query(
+			`SELECT id, user_email, status FROM requests WHERE id = :id LIMIT 1`,
+			{ id: requestId }
+		);
+		if (!rows.length) {
+			res.status(404).json({ message: 'Request not found' });
+			return null;
+		}
+		const request = rows[0];
+		const isOwner = (request.user_email || '').toLowerCase() === email;
+		const role = await findUserRole(email);
+		if (!isOwner && !['HOD', 'ADMIN'].includes(role || '')) {
+			res.status(403).json({ message: 'Forbidden' });
+			return null;
+		}
+		return { request, role, isOwner };
+	} catch (err) {
+		console.error('Failed to verify request access', err);
+		res.status(500).json({ message: 'Failed to verify access' });
+		return null;
+	}
 }
 
 async function requireHodActor(email, res) {
@@ -173,12 +208,10 @@ router.get('/', async (req, res) => {
 	}
 });
 
-// Admin-only: delete a request (cascades to chat, files, requirements, submissions via FKs)
-router.delete('/:requestId', async (req, res) => {
-	const actorEmail = (req.headers['x-user-email'] || '').toString().toLowerCase();
-	const actor = await requireAdminActor(actorEmail, res);
-	if (!actor) return;
-
+// Admin-only: delete a request (cascades to chat, files, requirements, submissions via FKs).
+// This is the one destructive endpoint here, so it requires a verified JWT with the
+// ADMIN role rather than the spoofable x-user-email header used elsewhere.
+router.delete('/:requestId', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
 	const requestId = Number(req.params.requestId);
 	if (!requestId || Number.isNaN(requestId)) {
 		return res.status(400).json({ message: 'Invalid request id' });
@@ -508,8 +541,11 @@ router.post('/:requestId/post-approval/submissions', async (req, res) => {
 router.get('/:requestId/chat', async (req, res) => {
 	const requestId = Number(req.params.requestId);
 	const email = (req.headers['x-user-email'] || '').toString().toLowerCase();
-	if (!email) return res.status(400).json({ message: 'Email is required' });
 	if (!requestId || Number.isNaN(requestId)) return res.status(400).json({ message: 'Invalid request id' });
+
+	// Only the owner or an HOD/ADMIN may read a request's thread.
+	const access = await requireRequestAccess(requestId, email, res);
+	if (!access) return;
 
 	try {
 		const [messages] = await pool.query(
@@ -541,12 +577,17 @@ router.get('/:requestId/chat', async (req, res) => {
 
 router.post('/:requestId/chat', async (req, res) => {
 	const requestId = Number(req.params.requestId);
-	const email = (req.body?.senderEmail || req.headers['x-user-email'] || '').toString().toLowerCase();
+	// Attribution comes from the caller's header identity, never the body —
+	// a client cannot post as an arbitrary sender.
+	const email = (req.headers['x-user-email'] || req.body?.senderEmail || '').toString().toLowerCase();
 	const content = (req.body?.content || '').toString();
 	const upload = req.body?.upload || null;
-	if (!email) return res.status(400).json({ message: 'Email is required' });
 	if (!requestId || Number.isNaN(requestId)) return res.status(400).json({ message: 'Invalid request id' });
 	if (!content && !upload) return res.status(400).json({ message: 'Message content or attachment is required' });
+
+	// Only the owner or an HOD/ADMIN may post to a request's thread.
+	const access = await requireRequestAccess(requestId, email, res);
+	if (!access) return;
 
 	const connection = await pool.getConnection();
 	try {

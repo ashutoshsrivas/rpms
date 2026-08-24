@@ -116,33 +116,58 @@ async function adminUpdateUser(req, res) {
  	if (!userId) return res.status(400).json({ message: 'Invalid user id' });
 
  	const name = (req.body?.name || '').toString().trim();
- 	const email = (req.body?.email || '').toString().trim();
+ 	const email = (req.body?.email || '').toString().trim().toLowerCase();
  	const phone = (req.body?.phone || '').toString().trim();
 
  	if (!name || !email) {
  		return res.status(400).json({ message: 'Name and email are required' });
  	}
 
+ 	const connection = await pool.getConnection();
  	try {
- 		await pool.query('UPDATE users SET name = :name, email = :email, phone = :phone WHERE id = :id', {
+ 		await connection.beginTransaction();
+
+ 		const [current] = await connection.query('SELECT email FROM users WHERE id = :id LIMIT 1', { id: userId });
+ 		if (!current.length) {
+ 			await connection.rollback();
+ 			return res.status(404).json({ message: 'User not found' });
+ 		}
+ 		const oldEmail = (current[0].email || '').toLowerCase();
+
+ 		await connection.query('UPDATE users SET name = :name, email = :email, phone = :phone WHERE id = :id', {
  			name,
  			email,
  			phone,
  			id: userId,
  		});
 
- 		const [rows] = await pool.query(
+ 		// Email is the join key across the app; when it changes, re-point every
+ 		// row that referenced the old address so the user's requests, uploads,
+ 		// drafts, chat, and post-approval history are not orphaned.
+ 		if (oldEmail && oldEmail !== email) {
+ 			await connection.query('UPDATE requests SET user_email = :email WHERE user_email = :old', { email, old: oldEmail });
+ 			await connection.query('UPDATE uploads SET uploader_email = :email WHERE uploader_email = :old', { email, old: oldEmail });
+ 			await connection.query('UPDATE chat_messages SET sender_email = :email WHERE sender_email = :old', { email, old: oldEmail });
+ 			await connection.query('UPDATE chat_files SET sender_email = :email WHERE sender_email = :old', { email, old: oldEmail });
+ 			await connection.query('UPDATE post_approval_requirements SET created_by = :email WHERE created_by = :old', { email, old: oldEmail });
+ 			await connection.query('UPDATE post_approval_submissions SET uploader_email = :email WHERE uploader_email = :old', { email, old: oldEmail });
+ 		}
+
+ 		const [rows] = await connection.query(
  			' SELECT id, name, phone, email, role, created_at FROM users WHERE id = :id LIMIT 1',
  			{ id: userId }
  		);
- 		if (!rows.length) return res.status(404).json({ message: 'User not found' });
+ 		await connection.commit();
  		res.json(rows[0]);
  	} catch (err) {
+ 		await connection.rollback();
  		console.error('Failed to update user', err.message);
  		if (err && err.code === 'ER_DUP_ENTRY') {
  			return res.status(400).json({ message: 'Email already in use' });
  		}
  		res.status(500).json({ message: 'Unable to update user' });
+ 	} finally {
+ 		connection.release();
  	}
 }
 

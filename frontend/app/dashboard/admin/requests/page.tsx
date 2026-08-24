@@ -190,13 +190,16 @@ export default function AdminRequestsPage() {
   }
 
   async function deleteRequest(req: RequestRow) {
-    if (!auth?.email) return;
+    if (!auth?.token) {
+      setError("Your session has expired. Please sign in again.");
+      return;
+    }
     setDeletingId(req.id);
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/requests/${req.id}`, {
         method: "DELETE",
-        headers: { "x-user-email": auth.email },
+        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         const text = await res.text();

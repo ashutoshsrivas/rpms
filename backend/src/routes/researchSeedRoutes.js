@@ -118,12 +118,17 @@ router.put('/drafts/:id', async (req, res) => {
 	const data = req.body?.data;
 	const upload = req.body?.upload || {};
 	const approvalAuthority = req.body?.approvalAuthority || '';
-	let requestType = 'seed-research';
-
-	try {
-		requestType = resolveType(req.body?.requestType, 'seed-research');
-	} catch (err) {
-		return res.status(400).json({ message: err.message });
+	// Only resolve a type if the client sent one; otherwise we keep whatever
+	// the draft already is (below) so a PUT without requestType never rewrites
+	// a conference/workshop/etc. draft back to seed-research.
+	const requestTypeProvided = req.body?.requestType !== undefined && req.body?.requestType !== null && req.body?.requestType !== '';
+	let requestType = null;
+	if (requestTypeProvided) {
+		try {
+			requestType = resolveType(req.body.requestType, 'seed-research');
+		} catch (err) {
+			return res.status(400).json({ message: err.message });
+		}
 	}
 
 	if (!id || Number.isNaN(id)) {
@@ -148,6 +153,9 @@ router.put('/drafts/:id', async (req, res) => {
 			return res.status(400).json({ message: 'Cannot edit an approved request' });
 		}
 
+		// Preserve the existing type when the client did not send one.
+		const effectiveType = requestType || existingRows[0].request_type || 'seed-research';
+
 		const payload = JSON.stringify(data);
 		await pool.query(
 			`UPDATE requests SET data = :data, upload_key = :upload_key, upload_url = :upload_url, approval_authority = :approval_authority, request_type = :request_type WHERE id = :id AND user_email = :user_email`,
@@ -156,7 +164,7 @@ router.put('/drafts/:id', async (req, res) => {
 				upload_key: upload.key || null,
 				upload_url: upload.url || null,
 				approval_authority: approvalAuthority,
-				request_type: requestType,
+				request_type: effectiveType,
 				id,
 				user_email: userEmail,
 			}
